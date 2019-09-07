@@ -142,6 +142,24 @@ int apply_relocate_add(Elf_Shdr *sechdrs,
 		       unsigned int symindex,
 		       unsigned int relsec,
 		       struct module *mod);
+
+#ifdef CONFIG_HAVE_MOD_ARCH_SPECIFIC
+/* Adjust arch-specific sections.  Return 0 on success.  */
+int module_frob_arch_sections(Elf_Ehdr *hdr,
+			      Elf_Shdr *sechdrs,
+			      char *secstrings,
+			      struct module *mod);
+#else
+static inline
+int module_frob_arch_sections(Elf_Ehdr *hdr,
+			      Elf_Shdr *sechdrs,
+			      char *secstrings,
+			      struct module *mod)
+{
+	return 0;
+}
+#endif
+
 #endif /* CONFIG_MODULES */
 
 extern struct list_head module_list;
