@@ -13,6 +13,10 @@
 
 #define MODULE_NAME_LEN (64 - sizeof(unsigned long))
 
+/* These are either module local, or the kernel's dummy ones. */
+extern int init_module(void);
+extern void cleanup_module(void);
+
 #ifdef CONFIG_MODULES
 #include <asm/module.h>
 
@@ -51,6 +55,24 @@ int apply_relocate_add(Elf_Shdr *sechdrs,
 		       unsigned int symindex,
 		       unsigned int relsec,
 		       struct module *mod);
+
+#ifdef CONFIG_HAVE_MOD_ARCH_SPECIFIC
+/* Adjust arch-specific sections.  Return 0 on success.  */
+int module_frob_arch_sections(Elf_Ehdr *hdr,
+			      Elf_Shdr *sechdrs,
+			      char *secstrings,
+			      struct module *mod);
+#else
+static inline
+int module_frob_arch_sections(Elf_Ehdr *hdr,
+			      Elf_Shdr *sechdrs,
+			      char *secstrings,
+			      struct module *mod)
+{
+	return 0;
+}
+#endif
+
 #endif /* CONFIG_MODULES */
 
 extern struct list_head module_list;

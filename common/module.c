@@ -246,6 +246,12 @@ struct module * load_module(void *mod_image, unsigned long len)
 		goto cleanup;
 	}
 
+	/* Allow arches to frob section contents and sizes.  */
+	err = module_frob_arch_sections(ehdr, sechdrs,
+					secstrings, module);
+	if (err < 0)
+		goto cleanup;
+
 	/* Determine total sizes, and put offsets in sh_entsize.  For now
 	   this is done generically; there doesn't appear to be any
 	   special cases for the architectures. */
@@ -263,7 +269,7 @@ struct module * load_module(void *mod_image, unsigned long len)
 			continue;
 
 		dest = module->module_core + sechdrs[i].sh_entsize;
-		debug("0x%08x dest 0x%p\n", sechdrs[i].sh_addr, dest);
+		debug("0x%08x dest 0x%p %s\n", sechdrs[i].sh_addr, dest, secstrings + sechdrs[i].sh_name);
 
 		if (sechdrs[i].sh_type != SHT_NOBITS)
 			memcpy(dest, (void *)sechdrs[i].sh_addr,
