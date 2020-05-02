@@ -74,7 +74,7 @@ ifdef CONFIG_PASSWORD
 
 ifeq ($(CONFIG_PASSWORD_DEFAULT),"")
 define filechk_passwd
-	echo "static const char default_passwd[] = \"\";"
+	echo "static const char default_passwd[] = \"\\0\";"
 endef
 else
 define filechk_passwd
