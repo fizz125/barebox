@@ -111,3 +111,4 @@ include/generated/compile.h: FORCE
 	$(Q)$(CONFIG_SHELL) $(srctree)/scripts/mkcompile_h $@ \
 	"$(UTS_MACHINE)" "$(CC) $(KBUILD_CFLAGS)"
 
+obj-$(CONFIG_MODULES) += ../test/
