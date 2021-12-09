@@ -72,6 +72,7 @@ static struct dentry *cwd_dentry;
 static struct vfsmount *cwd_mnt;
 
 static FILE *files;
+static FILE **fds;
 static struct dentry *d_root;
 static struct vfsmount *mnt_root;
 
@@ -83,6 +84,7 @@ static int init_fs(void)
 	*cwd = '/';
 
 	files = xzalloc(sizeof(FILE) * MAX_FILES);
+	fds = xzalloc(sizeof(FILE*) * MAX_FILES);
 
 	return 0;
 }
@@ -156,15 +158,28 @@ char *get_mounted_path(const char *path)
 static FILE *get_file(void)
 {
 	int i;
+	FILE *f = NULL;
 
-	for (i = 3; i < MAX_FILES; i++) {
+	for (i = 0; i < MAX_FILES; i++) {
 		if (!files[i].in_use) {
 			memset(&files[i], 0, sizeof(FILE));
-			files[i].in_use = 1;
-			files[i].no = i;
-			return &files[i];
+			files[i].in_use += 1;
+			f = &files[i];
+			break;
 		}
 	}
+
+	if (!f)
+		return NULL;
+
+	for (i = 3; i < MAX_FILES; i++) {
+		if (!fds[i]) {
+			f->no = i;
+			fds[i] = f;
+			return f;
+		}
+	}
+
 	return NULL;
 }
 
@@ -177,14 +192,24 @@ static void put_file(FILE *f)
 	dput(f->dentry);
 }
 
+static int put_fd(int fd)
+{
+	FILE *f = fds[fd];
+
+	f->in_use -= 1;
+	fds[fd] = NULL;
+
+	return f->in_use;
+}
+
 static FILE *fd_to_file(int fd)
 {
-	if (fd < 0 || fd >= MAX_FILES || !files[fd].in_use) {
+	if (fd < 0 || fd >= MAX_FILES || !fds[fd]) {
 		errno = EBADF;
 		return ERR_PTR(-errno);
 	}
 
-	return &files[fd];
+	return fds[fd];
 }
 
 static int create(struct dentry *dir, struct dentry *dentry)
@@ -605,6 +630,9 @@ int close(int fd)
 
 	if (IS_ERR(f))
 		return -errno;
+
+	if (put_fd(fd) > 0)
+		return 0;
 
 	fsdrv = f->fsdev->driver;
 
@@ -2479,6 +2507,7 @@ int open(const char *pathname, int flags, ...)
 	return f->no;
 
 out:
+	put_fd(f->no);
 	put_file(f);
 out1:
 
