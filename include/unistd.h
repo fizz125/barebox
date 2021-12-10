@@ -22,5 +22,7 @@ int readlink(const char *path, char *buf, size_t bufsiz);
 int chdir(const char *pathname);
 const char *getcwd(void);
 int ftruncate(int fd, loff_t length);
+int dup(int oldfd);
+int dup2(int oldfd, int newfd);
 
 #endif /* __UNISTD_H */

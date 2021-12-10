@@ -212,6 +212,46 @@ static FILE *fd_to_file(int fd)
 	return fds[fd];
 }
 
+int dup2(int oldfd, int newfd)
+{
+	FILE *oldfile;
+	FILE *newfile;
+
+	oldfile = fd_to_file(oldfd);
+	if (IS_ERR(oldfile))
+		return PTR_ERR(oldfile);
+
+	if (oldfd == newfd)
+		return newfd;
+
+	if (newfd < 0 || newfd >= MAX_FILES)
+		return -EBADF;
+
+	newfile = fds[newfd];
+
+	if (newfile)
+		close(newfd);
+
+	fds[newfd] = oldfile;
+	oldfile->in_use += 1;
+
+	return newfd;
+}
+EXPORT_SYMBOL(dup2);
+
+int dup(int oldfd)
+{
+	int i;
+
+	for (i = 3; i < MAX_FILES; i++) {
+		if (!fds[i])
+			return dup2(oldfd, i);
+	}
+
+	return -EMFILE;
+}
+EXPORT_SYMBOL(dup);
+
 static int create(struct dentry *dir, struct dentry *dentry)
 {
 	struct inode *inode;
