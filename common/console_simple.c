@@ -49,13 +49,13 @@ int tstc(void)
 }
 EXPORT_SYMBOL(tstc);
 
-int getchar(void)
+int console_getchar(void)
 {
 	if (!console)
 		return -EINVAL;
 	return console->getc(console);
 }
-EXPORT_SYMBOL(getchar);
+EXPORT_SYMBOL(console_getchar);
 
 void console_flush(void)
 {

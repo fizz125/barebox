@@ -27,6 +27,7 @@ int vscnprintf(char *buf, size_t size, const char *fmt, va_list args);
 #ifndef CONFIG_CONSOLE_NONE
 /* stdin */
 int tstc(void);
+int console_getchar(void);
 
 /* stdout */
 void console_putc(unsigned int ch, const char c);
@@ -39,6 +40,11 @@ int vprintf(const char *fmt, va_list args);
 static inline int tstc(void)
 {
 	return 0;
+}
+
+static inline int console_getchar(void)
+{
+	return -1;
 }
 
 static inline int console_puts(unsigned int ch, const char *str)
@@ -72,15 +78,8 @@ static inline int ctrlc (void)
 
 #if (!defined(__PBL__) && !defined(CONFIG_CONSOLE_NONE)) || \
 	(defined(__PBL__) && defined(CONFIG_PBL_CONSOLE))
-static inline int puts(const char *s)
-{
-	return console_puts(CONSOLE_STDOUT, s);
-}
-
-static inline void putchar(char c)
-{
-	console_putc(CONSOLE_STDOUT, c);
-}
+int puts(const char *s);
+void putchar(char c);
 #else
 static inline int puts(const char *s)
 {

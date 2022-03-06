@@ -454,7 +454,7 @@ static int tstc_raw(void)
 	return 0;
 }
 
-int getchar(void)
+int console_getchar(void)
 {
 	unsigned char ch;
 	uint64_t start;
@@ -489,7 +489,7 @@ int getchar(void)
 
 	return ch;
 }
-EXPORT_SYMBOL(getchar);
+EXPORT_SYMBOL(console_getchar);
 
 int tstc(void)
 {
