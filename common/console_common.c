@@ -373,24 +373,12 @@ EXPORT_SYMBOL(dprintf);
 
 int dputs(int fd, const char *s)
 {
-	if (fd == 1)
-		return puts(s);
-	else if (fd == 2)
-		return console_puts(CONSOLE_STDERR, s);
-	else
-		return write(fd, s, strlen(s));
+	return write(fd, s, strlen(s));
 }
 EXPORT_SYMBOL(dputs);
 
 int dputc(int fd, char c)
 {
-	if (fd == 1)
-		putchar(c);
-	else if (fd == 2)
-		console_putc(CONSOLE_STDERR, c);
-	else
-		return write(fd, &c, 1);
-
-	return 0;
+	return write(fd, &c, 1);
 }
 EXPORT_SYMBOL(dputc);
