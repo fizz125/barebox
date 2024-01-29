@@ -5,6 +5,11 @@
 #include <linux/compiler.h>
 #include <types.h>
 
+#ifdef CONFIG_MALLOC_TLSF
+void *malloc_add_pool(void *mem, size_t bytes);
+int malloc_remove_pool(void *pool);
+#endif
+
 #if IN_PROPER
 void *malloc(size_t) __alloc_size(1);
 size_t malloc_usable_size(void *);
