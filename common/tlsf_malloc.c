@@ -9,8 +9,12 @@
 #include <string.h>
 
 #include <stdio.h>
+#include <memory.h>
 #include <module.h>
 #include <tlsf.h>
+
+#include <linux/kasan.h>
+#include <linux/list.h>
 
 extern tlsf_t tlsf_mem_pool;
 
@@ -58,6 +62,45 @@ void *memalign(size_t alignment, size_t bytes)
 }
 EXPORT_SYMBOL(memalign);
 
+struct pool_entry {
+	pool_t pool;
+	struct list_head list;
+};
+
+static LIST_HEAD(mem_pool_list);
+
+pool_t add_tlsf_pool(void *mem, size_t bytes)
+{
+	pool_t new_pool;
+	struct pool_entry *new_pool_entry;
+
+	if (!(new_pool = tlsf_add_pool(tlsf_mem_pool, mem, bytes)))
+		return 0;
+
+	kasan_poison_shadow(mem, bytes, KASAN_TAG_INVALID);
+
+	new_pool_entry = xzalloc(sizeof(struct pool_entry));
+	new_pool_entry->pool = new_pool;
+
+	list_add(&(new_pool_entry->list), &mem_pool_list);
+
+	return new_pool;
+}
+
+void remove_tlsf_pool(pool_t pool)
+{
+	struct pool_entry *cur_pool;
+
+	list_for_each_entry(cur_pool, &mem_pool_list, list) {
+		if (cur_pool->pool == pool) {
+			list_del(&(cur_pool->list));
+			free(cur_pool);
+			tlsf_remove_pool(tlsf_mem_pool, pool);
+			return;
+		}
+	}
+}
+
 struct malloc_stats {
 	size_t free;
 	size_t used;
@@ -75,12 +118,16 @@ static void malloc_walker(void* ptr, size_t size, int used, void *user)
 
 void malloc_stats(void)
 {
+	struct pool_entry *cur_pool;
 	struct malloc_stats s;
 
 	s.used = 0;
 	s.free = 0;
 
 	tlsf_walk_pool(tlsf_get_pool(tlsf_mem_pool), malloc_walker, &s);
+
+	list_for_each_entry(cur_pool, &mem_pool_list, list)
+		tlsf_walk_pool(cur_pool->pool, malloc_walker, &s);
 
 	printf("used: %zu\nfree: %zu\n", s.used, s.free);
 }

@@ -35,7 +35,6 @@ unsigned long mem_malloc_end(void)
 }
 
 #ifdef CONFIG_MALLOC_TLSF
-#include <tlsf.h>
 tlsf_t tlsf_mem_pool;
 #endif
 

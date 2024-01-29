@@ -15,6 +15,12 @@ static inline ulong mem_malloc_size(void)
 	return mem_malloc_end() - mem_malloc_start() + 1;
 }
 
+#ifdef CONFIG_MALLOC_TLSF
+#include <tlsf.h>
+pool_t add_tlsf_pool(void *mem, size_t bytes);
+void remove_tlsf_pool(pool_t pool);
+#endif
+
 struct memory_bank {
 	struct list_head list;
 	unsigned long start;
