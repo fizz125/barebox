@@ -74,6 +74,13 @@ pool_t add_tlsf_pool(void *mem, size_t bytes)
 	pool_t new_pool;
 	struct pool_entry *new_pool_entry;
 
+	struct resource *resptr;
+	resptr = request_sdram_region("extended malloc space", (uintptr_t)mem, bytes);
+	if (IS_ERR(resptr)) {
+		printf("request_sdram_region error\n");
+		return 0;
+	}
+
 	if (!(new_pool = tlsf_add_pool(tlsf_mem_pool, mem, bytes)))
 		return 0;
 
@@ -86,6 +93,36 @@ pool_t add_tlsf_pool(void *mem, size_t bytes)
 
 	return new_pool;
 }
+
+#if 0
+/* if the pool is not empty, tlsf_remove_pool will fail
+ * But if that happens, there's no error returns just a console print by
+ * tlsf_assert
+ * We can attempt to confirm the pool is empty first by walking it, but if the
+ * struct pool_entry was allocated from the pool it'll basically just deadlock
+ *
+ * Alternatively, we could modify add_tlsf_pool to allocate the tlsf_malloc
+ * tracking struct before adding the pool. Which could fail in the narrow case
+ * where we're out of memory but trying to add more. Thats mostly just moving
+ * the issue from the "remove" step to the "add" step, but it's equally as rare
+ */
+static void __remove_pool(struct pool_entry *candidate_pool)
+{
+	struct malloc_stats s;
+	pool_t pool = candidate_pool->pool;
+
+	s.used = 0;
+	s.free = 0;
+
+	tlsf_walk_pool(pool, malloc_walker, &s);
+	if (s.used > 0)
+		return;
+
+	list_del(&(candidate_pool->list));
+	free(candidate_pool);
+	tlsf_remove_pool(tlsf_mem_pool, pool);
+}
+#endif
 
 void remove_tlsf_pool(pool_t pool)
 {
