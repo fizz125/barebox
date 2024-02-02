@@ -510,6 +510,16 @@ static struct option long_options[] = {
 
 static const char optstring[] = "hm:i:e:d:O:I:B:x:y:";
 
+void *ram2;
+void *ram3;
+
+struct mymeminfo {
+	void *start;
+	void *end;
+};
+
+struct mymeminfo mmi[3] = { 0 };
+
 int main(int argc, char *argv[])
 {
 	void *ram;
@@ -566,7 +576,19 @@ int main(int argc, char *argv[])
 		printf("unable to get malloc space\n");
 		exit(1);
 	}
+
+	ram2 = malloc(CONFIG_MALLOC_SIZE);
+	ram3 = malloc(CONFIG_MALLOC_SIZE);
+
+	printf("ram @ %p | ram2 @ %p | ram3 @ %p\n", ram, ram2, ram3);
+
 	mem_malloc_init(ram, ram + malloc_size - 1);
+
+	mmi[0].start = ram;
+	mmi[0].end = (ram+malloc_size-1);
+
+	mmi[2].start=ram3;
+	mmi[2].end=(ram3+malloc_size-1);
 
 	/*
 	 * Reset getopt.

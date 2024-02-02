@@ -147,4 +147,6 @@ obj-$(CONFIG_CMD_SELFTEST)	+= selftest.o
 obj-$(CONFIG_CMD_TUTORIAL)	+= tutorial.o
 obj-$(CONFIG_CMD_STACKSMASH)	+= stacksmash.o
 
+obj-y += add_pool.o
+
 UBSAN_SANITIZE_ubsan.o := y
