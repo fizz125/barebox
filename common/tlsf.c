@@ -727,6 +727,36 @@ static void default_walker(void* ptr, size_t size, int used, void* user)
 	printf("\t%p %s size: %x (%p)\n", ptr, used ? "used" : "free", (unsigned int)size, block_from_ptr(ptr));
 }
 
+static block_header_t *tlsf_get_sentinel(block_header_t* block)
+{
+	while (block && !block_is_last(block))
+	{
+		block = block_next(block);
+	}
+
+	/* assert block size = 0 && block used */
+	tlsf_assert(!block_is_free(block) && "block should be used");
+	tlsf_assert(block_size(block) == 0 && "block size should be zero");
+
+	return block;
+}
+
+pool_t tlsf_get_next_pool(pool_t pool)
+{
+	block_header_t* block = offset_to_block(pool, -(int)block_header_overhead);
+
+	block = tlsf_get_sentinel(block);
+
+	if (block->next_free == NULL) {
+		return 0;
+	}
+
+	block = block->next_free;
+
+	/* No built-in for going from a block to the pool */
+	return tlsf_cast(pool_t, tlsf_cast(tlsfptr_t, block) + block_header_overhead);
+}
+
 void tlsf_walk_pool(pool_t pool, tlsf_walker walker, void* user)
 {
 	tlsf_walker pool_walker = walker ? walker : default_walker;
@@ -742,6 +772,19 @@ void tlsf_walk_pool(pool_t pool, tlsf_walker walker, void* user)
 			user);
 		block = block_next(block);
 	}
+
+#if 0
+	/* Debug sanity checks */
+	if (block_is_last(block)) {
+		printf("sentinel block @ %p | size = %zu", block_to_ptr(block), block_size(block));
+		if (block_is_free(block) || block->next_free != NULL || block->prev_free != NULL) {
+			printf("\n\tNOT SANE VALUES?\n");
+			printf("\tblock->next_free @ %p | block->prev_free @ %p\n", (void *)block->next_free, (void *)block->prev_free);
+		} else {
+			printf(" | sane\n");
+		}
+	}
+#endif
 }
 
 size_t tlsf_block_size(void* ptr)
@@ -803,6 +846,39 @@ size_t tlsf_alloc_overhead(void)
 	return block_header_overhead;
 }
 
+static void tlsf_link_pool(tlsf_t tlsf, block_header_t* new_pool_block)
+{
+	block_header_t* block =
+		offset_to_block(tlsf_get_pool(tlsf), -(int)block_header_overhead);
+
+	if (block == new_pool_block) {
+		printf("can't link to ourselves\n");
+		return;
+	}
+
+//	int n = 0;
+
+	while (block && !block_is_last(block)) {
+		block = tlsf_get_sentinel(block);
+
+		printf("block->next_free = %p\n", block->next_free);
+
+		/* Step to the next pool */
+		if (block->next_free != NULL) {
+			printf("moving to next pool\n");
+			block = block->next_free;
+		}
+
+		/* debug */
+//		if (n++ > 10) {
+//			printf("something broke\n");
+//			return;
+//		}
+	}
+
+	block->next_free = new_pool_block;
+}
+
 pool_t tlsf_add_pool(tlsf_t tlsf, void* mem, size_t bytes)
 {
 	block_header_t* block;
@@ -849,6 +925,9 @@ pool_t tlsf_add_pool(tlsf_t tlsf, void* mem, size_t bytes)
 	block_set_used(next);
 	block_set_prev_free(next);
 
+	tlsf_link_pool(tlsf, block);
+
+	printf("TLSF: adding pool @ %p\n", mem);
 	return mem;
 }
 
@@ -865,6 +944,31 @@ void tlsf_remove_pool(tlsf_t tlsf, pool_t pool)
 
 	mapping_insert(block_size(block), &fl, &sl);
 	remove_free_block(control, block, fl, sl);
+
+	printf("unlinking pool\n");
+	block_header_t *next_pool_block = block_next(block)->next_free;
+//	block_header_t *prev_pool_sentinel_block;
+
+	pool_t prev_pool = tlsf_get_pool(tlsf);
+	pool_t cur_pool = tlsf_get_next_pool(prev_pool);
+	if (cur_pool == 0 || prev_pool == pool) {
+		printf("no pool to remove?\n");
+		return;
+	}
+
+	while (cur_pool && cur_pool != pool) {
+		prev_pool = cur_pool;
+		cur_pool = tlsf_get_next_pool(cur_pool);
+	}
+
+	if (!cur_pool) {
+		printf("no pool found?\n");
+		return;
+	}
+
+	/* prev_pool last block -> block_next = next_pool_block */
+	//block_header_t* prev_pool_block = offset_to_block(pool, -(int)block_header_overhead);
+	//tlsf_get_sentinel(prev_pool_block)->next_free = next_pool_block;
 }
 
 /*
@@ -916,6 +1020,8 @@ tlsf_t tlsf_create(void* mem)
 	}
 
 	control_construct(tlsf_cast(control_t*, mem));
+
+	printf("TLSF: Initializing @ %p\n", mem);
 
 	return tlsf_cast(tlsf_t, mem);
 }
